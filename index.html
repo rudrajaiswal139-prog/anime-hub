@@ -457,6 +457,759 @@ body[data-theme="light"] .modal-content {
 
   <!-- PART 3 + PART 4 WILL GO HERE -->
   <script id="app-script">
+    // ================================
+// AniTracker – State & Utilities
+// ================================
+
+const STORAGE_KEY = "anittracker_state_v1";
+const THEME_KEY = "anittracker_theme_v1";
+
+let state = {
+  library: [],        // anime saved by user
+  lastTheme: "dark",
+};
+
+let currentFilter = "all";
+
+// Shortcuts
+const $ = (id) => document.getElementById(id);
+
+// Save/load state
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error("Failed to save", e);
+  }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        state = Object.assign(state, parsed);
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load", e);
+  }
+}
+
+// Generate simple ID
+function makeId() {
+  return "a_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+// Genre icons
+const GENRE_ICONS = {
+  Action: "🔥",
+  Adventure: "🗺️",
+  Comedy: "😂",
+  Drama: "🎭",
+  Fantasy: "✨",
+  Horror: "👻",
+  Mystery: "🕵️",
+  Romance: "❤️",
+  SciFi: "🚀",
+  Sports: "🏆",
+  SliceofLife: "☕",
+  Supernatural: "🔮",
+  Psychological: "🧠",
+};
+
+// ================================
+// Theme handling
+// ================================
+
+function applyTheme(theme) {
+  document.body.setAttribute("data-theme", theme);
+  state.lastTheme = theme;
+  localStorage.setItem(THEME_KEY, theme);
+
+  const btn = $("theme-toggle");
+  if (btn) btn.textContent = theme === "dark" ? "🌙" : "☀️";
+}
+
+function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  applyTheme(saved === "light" ? "light" : "dark");
+
+  $("theme-toggle").onclick = () => {
+    const next = document.body.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    applyTheme(next);
+  };
+}
+
+// ================================
+// Library data helpers
+// ================================
+
+function upsertAnime(anime) {
+  const idx = state.library.findIndex((a) =>
+    (anime.malId && a.malId === anime.malId) ||
+    (anime.id && a.id === anime.id)
+  );
+
+  if (idx >= 0) {
+    state.library[idx] = Object.assign({}, state.library[idx], anime);
+  } else {
+    anime.id = anime.id || makeId();
+    anime.episodesWatched = anime.episodesWatched || 0;
+    anime.status = anime.status || "plan";
+    anime.minutesPerEp = anime.minutesPerEp || 24;
+    state.library.push(anime);
+  }
+
+  saveState();
+  renderAll();
+}
+
+function removeAnime(id) {
+  state.library = state.library.filter((a) => a.id !== id);
+  saveState();
+  renderAll();
+}
+
+// ================================
+// Rendering: Library + Continue Watching
+// ================================
+
+function renderLibrary() {
+  const grid = $("library-grid");
+  const empty = $("library-empty");
+  grid.innerHTML = "";
+
+  let list = state.library.slice();
+  if (currentFilter !== "all") {
+    list = list.filter((a) => a.status === currentFilter);
+  }
+
+  if (!list.length) {
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+
+  list.forEach((anime) => {
+    const card = document.createElement("div");
+    card.className = "poster-card";
+
+    const img = document.createElement("img");
+    img.className = "poster";
+    img.src = anime.image || "";
+    img.alt = anime.title;
+    card.appendChild(img);
+
+    const info = document.createElement("div");
+    info.className = "poster-info";
+
+    const title = document.createElement("p");
+    title.className = "poster-title";
+    title.textContent = anime.title;
+    info.appendChild(title);
+
+    const meta = document.createElement("p");
+    meta.style.fontSize = "12px";
+    meta.textContent =
+      (anime.type || "TV") +
+      " • " +
+      (anime.episodes || "?") +
+      " eps • Score " +
+      (anime.score ?? "?");
+    info.appendChild(meta);
+
+    const prog = document.createElement("p");
+    prog.style.fontSize = "12px";
+    prog.textContent =
+      "Ep " +
+      (anime.episodesWatched || 0) +
+      " / " +
+      (anime.episodes || "?");
+    info.appendChild(prog);
+
+    const genresDiv = document.createElement("div");
+    genresDiv.className = "genre-tags";
+    (anime.genres || []).forEach((g) => {
+      const tag = document.createElement("span");
+      tag.className = "genre-tag";
+      const key = g.replace(/\s+/g, "");
+      const emoji = GENRE_ICONS[key] || "";
+      tag.textContent = (emoji ? emoji + " " : "") + g;
+      genresDiv.appendChild(tag);
+    });
+    info.appendChild(genresDiv);
+
+    const controls = document.createElement("div");
+    controls.style.display = "flex";
+    controls.style.flexWrap = "wrap";
+    controls.style.gap = "4px";
+    controls.style.marginTop = "6px";
+
+    const plusBtn = document.createElement("button");
+    plusBtn.className = "primary-btn";
+    plusBtn.style.padding = "4px 8px";
+    plusBtn.style.fontSize = "11px";
+    plusBtn.textContent = "+1 ep";
+    plusBtn.onclick = (e) => {
+      e.stopPropagation();
+      anime.episodesWatched = (anime.episodesWatched || 0) + 1;
+      saveState();
+      renderAll();
+    };
+    controls.appendChild(plusBtn);
+
+    const statusSel = document.createElement("select");
+    statusSel.style.padding = "4px 8px";
+    statusSel.style.fontSize = "11px";
+    ["watching", "completed", "plan", "rewatching", "dropped"].forEach((s) => {
+      const opt = document.createElement("option");
+      opt.value = s;
+      opt.textContent = s;
+      if (anime.status === s) opt.selected = true;
+      statusSel.appendChild(opt);
+    });
+    statusSel.onchange = (e) => {
+      anime.status = e.target.value;
+      saveState();
+      renderAll();
+    };
+    controls.appendChild(statusSel);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "header-btn";
+    removeBtn.style.padding = "4px 8px";
+    removeBtn.style.fontSize = "11px";
+    removeBtn.textContent = "Remove";
+    removeBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (confirm("Remove from library?")) removeAnime(anime.id);
+    };
+    controls.appendChild(removeBtn);
+
+    info.appendChild(controls);
+
+    card.appendChild(info);
+    card.onclick = () => openDetailsFromLibrary(anime);
+
+    grid.appendChild(card);
+  });
+}
+
+function renderContinueWatching() {
+  const row = $("continue-grid");
+  row.innerHTML = "";
+
+  const watching = state.library.filter(
+    (a) => a.status === "watching" || a.status === "rewatching"
+  );
+
+  if (!watching.length) {
+    row.textContent = "No shows in progress.";
+    return;
+  }
+
+  watching.forEach((anim) => {
+    const card = document.createElement("div");
+    card.className = "poster-card";
+
+    const img = document.createElement("img");
+    img.className = "poster";
+    img.src = anim.image || "";
+    img.alt = anim.title;
+    card.appendChild(img);
+
+    const info = document.createElement("div");
+    info.className = "poster-info";
+
+    const title = document.createElement("p");
+    title.className = "poster-title";
+    title.textContent = anim.title;
+    info.appendChild(title);
+
+    const prog = document.createElement("p");
+    prog.style.fontSize = "12px";
+    prog.textContent =
+      "Ep " +
+      (anim.episodesWatched || 0) +
+      " / " +
+      (anim.episodes || "?");
+    info.appendChild(prog);
+
+    const btn = document.createElement("button");
+    btn.className = "primary-btn";
+    btn.style.padding = "4px 8px";
+    btn.style.fontSize = "11px";
+    btn.textContent = "+1 ep";
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      anim.episodesWatched = (anim.episodesWatched || 0) + 1;
+      saveState();
+      renderAll();
+    };
+    info.appendChild(btn);
+
+    card.appendChild(info);
+    card.onclick = () => openDetailsFromLibrary(anim);
+
+    row.appendChild(card);
+  });
+                         }
+    // ================================
+// Stats & Recommendations
+// ================================
+
+function renderStats() {
+  const list = state.library;
+  $("stat-total").textContent = list.length.toString();
+
+  let minutes = 0;
+  let sumScore = 0;
+  let scoreCount = 0;
+  const genreFreq = {};
+
+  list.forEach((a) => {
+    const watched = a.episodesWatched || 0;
+    const mins = a.minutesPerEp || 24;
+    minutes += watched * mins;
+
+    if (a.score != null) {
+      sumScore += a.score;
+      scoreCount++;
+    }
+
+    (a.genres || []).forEach((g) => {
+      genreFreq[g] = (genreFreq[g] || 0) + 1;
+    });
+  });
+
+  $("stat-hours").textContent = (Math.round((minutes / 60) * 10) / 10) + "h";
+
+  let top = "-";
+  let mx = 0;
+  Object.entries(genreFreq).forEach(([g, c]) => {
+    if (c > mx) {
+      mx = c;
+      top = g;
+    }
+  });
+  $("stat-genre").textContent = top;
+
+  $("stat-score").textContent =
+    scoreCount ? (sumScore / scoreCount).toFixed(2) : "0.00";
+}
+
+function renderRecommendations() {
+  const grid = $("rec-grid");
+  grid.innerHTML = "";
+
+  if (!state.library.length) {
+    grid.textContent = "Add anime to your library for recommendations.";
+    return;
+  }
+
+  const freq = {};
+  state.library.forEach((a) => {
+    (a.genres || []).forEach((g) => {
+      freq[g] = (freq[g] || 0) + 1;
+    });
+  });
+
+  let topGenre = null;
+  let max = 0;
+  Object.entries(freq).forEach(([g, c]) => {
+    if (c > max) {
+      max = c;
+      topGenre = g;
+    }
+  });
+
+  const recs = state.library
+    .filter((a) => (a.genres || []).includes(topGenre))
+    .sort((a, b) => (b.score || 0) - (a.score || 0))
+    .slice(0, 8);
+
+  if (!recs.length) {
+    grid.textContent = "Not enough data to recommend yet.";
+    return;
+  }
+
+  recs.forEach((anime) => {
+    const card = document.createElement("div");
+    card.className = "poster-card";
+
+    card.onclick = () => openDetailsFromLibrary(anime);
+
+    const img = document.createElement("img");
+    img.className = "poster";
+    img.src = anime.image || "";
+    img.alt = anime.title;
+    card.appendChild(img);
+
+    const info = document.createElement("div");
+    info.className = "poster-info";
+
+    const title = document.createElement("p");
+    title.className = "poster-title";
+    title.textContent = anime.title;
+    info.appendChild(title);
+
+    const meta = document.createElement("p");
+    meta.style.fontSize = "12px";
+    meta.textContent = "Score " + (anime.score ?? "?");
+    info.appendChild(meta);
+
+    card.appendChild(info);
+    grid.appendChild(card);
+  });
+}
+
+// ================================
+// Search (Jikan API)
+// ================================
+
+function searchAnime(query) {
+  const url =
+    "https://api.jikan.moe/v4/anime?q=" +
+    encodeURIComponent(query) +
+    "&limit=12&order_by=popularity&sort=asc";
+
+  return fetch(url).then((res) => res.json());
+}
+
+function fetchAnimeFull(malId) {
+  return fetch("https://api.jikan.moe/v4/anime/" + malId + "/full")
+    .then((res) => res.json());
+}
+
+function renderSearchResults(found) {
+  const container = $("search-results");
+  container.innerHTML = "";
+
+  if (!found.length) {
+    container.textContent = "No results.";
+    return;
+  }
+
+  const processed = found
+    .map((item) => ({
+      ...item,
+      displayTitle: item.title_english || item.title || item.title_japanese,
+    }))
+    // only main series (TV)
+    .filter((item) => item.type === "TV" || item.type === "TV Series");
+
+  if (!processed.length) {
+    container.textContent = "No main series found.";
+    return;
+  }
+
+  processed.forEach((d) => {
+    const card = document.createElement("div");
+    card.className = "poster-card";
+
+    card.onclick = () => openDetailsFromSearch(d.mal_id);
+
+    const img = document.createElement("img");
+    img.className = "poster";
+    img.src = d.images?.jpg?.image_url || "";
+    img.alt = d.displayTitle;
+    card.appendChild(img);
+
+    const info = document.createElement("div");
+    info.className = "poster-info";
+
+    const title = document.createElement("p");
+    title.className = "poster-title";
+    title.textContent = d.displayTitle;
+    info.appendChild(title);
+
+    const meta = document.createElement("p");
+    meta.style.fontSize = "12px";
+    meta.textContent =
+      d.type +
+      " • " +
+      (d.episodes || "?") +
+      " eps • Score " +
+      (d.score ?? "?");
+    info.appendChild(meta);
+
+    const genres = document.createElement("div");
+    genres.className = "genre-tags";
+    (d.genres || []).forEach((g) => {
+      const tag = document.createElement("span");
+      tag.className = "genre-tag";
+      const key = g.name.replace(/\s+/g, "");
+      const emoji = GENRE_ICONS[key] || "";
+      tag.textContent = (emoji ? emoji + " " : "") + g.name;
+      genres.appendChild(tag);
+    });
+    info.appendChild(genres);
+
+    card.appendChild(info);
+    container.appendChild(card);
+  });
+}
+
+// ================================
+// Modal + Detailed View
+// ================================
+
+function openModal() {
+  $("details-modal").classList.remove("hidden");
+}
+
+function closeModal() {
+  $("details-modal").classList.add("hidden");
+  $("modal-body").innerHTML = "";
+}
+
+// Watch order builder
+function buildWatchOrder(relations) {
+  if (!relations || !relations.length) {
+    return "<p>No related anime info.</p>";
+  }
+
+  const buckets = {
+    Prequel: [],
+    "Main story": [],
+    Sequel: [],
+    "Side story": [],
+    Summary: [],
+    Other: [],
+  };
+
+  relations.forEach((block) => {
+    const rel = block.relation;
+    (block.entry || []).forEach((e) => {
+      if (buckets[rel]) buckets[rel].push(e.name);
+      else buckets.Other.push(e.name);
+    });
+  });
+
+  let html = "<ul>";
+  ["Prequel", "Main story", "Sequel", "Side story", "Summary", "Other"].forEach(
+    (k) => {
+      if (buckets[k].length) {
+        html += `<li><strong>${k}:</strong> ${buckets[k].join(", ")}</li>`;
+      }
+    }
+  );
+  html += "</ul>";
+
+  return html;
+}
+
+function openDetailsFromSearch(malId) {
+  const body = $("modal-body");
+  body.innerHTML = "Loading…";
+  openModal();
+
+  fetchAnimeFull(malId)
+    .then((res) => {
+      const d = res.data;
+      if (!d) throw new Error("No data");
+
+      const title = d.title_english || d.title || d.title_japanese;
+      const img = d.images?.jpg?.image_url || "";
+      const genres = (d.genres || []).map((g) => g.name);
+      const synopsis = d.synopsis || "No synopsis.";
+
+      let html = `
+        <div style="display:flex; gap:10px; margin-bottom:10px;">
+          <img src="${img}" style="width:90px; border-radius:8px;">
+          <div>
+            <h2 style="margin:0 0 4px;">${title}</h2>
+            <p style="margin:0; font-size:13px;">
+              ${d.type} • ${d.episodes || "?"} eps • Score ${d.score ?? "?"}
+            </p>
+            <p style="margin:4px 0; font-size:12px; color:#9aa0b8;">${genres.join(", ")}</p>
+          </div>
+        </div>
+
+        <p style="font-size:12px;">${synopsis}</p>
+
+        <h3 style="margin-top:12px;">Watch Order</h3>
+        ${buildWatchOrder(d.relations)}
+
+        <button id="add-to-library" class="primary-btn" style="margin-top:12px; width:100%;">
+          Add to Library
+        </button>
+      `;
+
+      body.innerHTML = html;
+
+      $("add-to-library").onclick = () => {
+        upsertAnime({
+          malId: d.mal_id,
+          title,
+          image: img,
+          type: d.type,
+          episodes: d.episodes || null,
+          score: d.score ?? null,
+          genres,
+          status: "watching",
+          episodesWatched: 0,
+          minutesPerEp: 24,
+        });
+        alert("Added to library!");
+      };
+    })
+    .catch(() => {
+      body.textContent = "Failed to load details.";
+    });
+}
+
+function openDetailsFromLibrary(a) {
+  const body = $("modal-body");
+  const genres = (a.genres || []).join(", ");
+
+  let html = `
+    <div style="display:flex; gap:10px; margin-bottom:10px;">
+      <img src="${a.image}" style="width:90px; border-radius:8px;">
+      <div>
+        <h2 style="margin:0 0 4px;">${a.title}</h2>
+        <p style="margin:0; font-size:13px;">
+          ${a.type} • ${a.episodes || "?"} eps • Score ${a.score ?? "?"}
+        </p>
+        <p style="margin:4px 0; font-size:12px; color:#9aa0b8;">${genres}</p>
+        <p style="margin:4px 0; font-size:12px;">Status: ${a.status}</p>
+      </div>
+    </div>
+
+    <p style="font-size:12px;">Use the controls in your Library to change progress or status.</p>
+  `;
+
+  body.innerHTML = html;
+  openModal();
+      }
+    // ================================
+// Backup / Import
+// ================================
+
+function initBackup() {
+  const exportBtn = $("export-button");
+  const importBtn = $("import-button");
+  const importFile = $("import-file");
+
+  exportBtn.onclick = () => {
+    try {
+      const blob = new Blob([JSON.stringify(state, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "anittracker-backup.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Backup failed.");
+    }
+  };
+
+  importBtn.onclick = () => {
+    importFile.click();
+  };
+
+  importFile.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        if (parsed && typeof parsed === "object" && Array.isArray(parsed.library)) {
+          state = parsed;
+          saveState();
+          renderAll();
+          alert("Import successful.");
+        } else {
+          alert("Invalid file.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Failed to import.");
+      }
+    };
+    reader.readAsText(file);
+  };
+}
+
+// ================================
+// Filter tabs
+// ================================
+
+function initTabs() {
+  const tabs = document.querySelectorAll(".status-tabs .tab");
+  tabs.forEach((tab) => {
+    tab.onclick = () => {
+      tabs.forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      currentFilter = tab.getAttribute("data-status");
+      renderLibrary();
+    };
+  });
+}
+
+// ================================
+// Search button handler
+// ================================
+
+function initSearch() {
+  const btn = $("search-button");
+  const input = $("search-input");
+  const results = $("search-results");
+
+  btn.onclick = () => {
+    const q = input.value.trim();
+    results.innerHTML = "";
+    if (!q) {
+      results.textContent = "Type an anime name.";
+      return;
+    }
+    results.textContent = "Searching…";
+
+    searchAnime(q)
+      .then((res) => {
+        renderSearchResults(res.data || []);
+      })
+      .catch((e) => {
+        console.error(e);
+        results.textContent = "Search failed.";
+      });
+  };
+}
+
+// ================================
+// Render all + App init
+// ================================
+
+function renderAll() {
+  renderLibrary();
+  renderContinueWatching();
+  renderStats();
+  renderRecommendations();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadState();
+  initTheme();
+  initTabs();
+  initSearch();
+  initBackup();
+
+  $("modal-close").onclick = closeModal;
+  $("details-modal").onclick = (e) => {
+    if (e.target.id === "details-modal") closeModal();
+  };
+
+  renderAll();
+});
   </script>
 
 </body>
