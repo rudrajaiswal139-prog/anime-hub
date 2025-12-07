@@ -882,6 +882,36 @@ function fetchAnimeFull(malId) {
   return fetch("https://api.jikan.moe/v4/anime/" + malId + "/full")
     .then((res) => res.json());
 }
+    // fetch English titles for related anime to show watch order in English
+function fetchRelationEnglishTitles(relations) {
+  const ids = [];
+  (relations || []).forEach((block) => {
+    (block.entry || []).forEach((e) => {
+      if (e.mal_id) ids.push(e.mal_id);
+    });
+  });
+
+  const uniqueIds = [...new Set(ids)].slice(0, 10); // limit to 10 to avoid spam
+
+  if (!uniqueIds.length) return Promise.resolve({});
+
+  return Promise.all(
+    uniqueIds.map((id) =>
+      fetch("https://api.jikan.moe/v4/anime/" + id)
+        .then((r) => r.json())
+        .catch(() => null)
+    )
+  ).then((results) => {
+    const map = {};
+    results.forEach((res) => {
+      const d = res && res.data;
+      if (!d) return;
+      const name = d.title_english || d.title || d.title_japanese;
+      map[d.mal_id] = name;
+    });
+    return map;
+  });
+}
 
 function renderSearchResults(found) {
   const container = $("search-results");
@@ -966,10 +996,45 @@ function closeModal() {
 }
 
 // Watch order builder
-function buildWatchOrder(relations) {
+function buildWatchOrder(relations, titleMap) {
   if (!relations || !relations.length) {
     return "<p>No related anime info.</p>";
   }
+
+  const buckets = {
+    Prequel: [],
+    "Main story": [],
+    Sequel: [],
+    "Side story": [],
+    Summary: [],
+    Other: [],
+  };
+
+  relations.forEach((block) => {
+    const rel = block.relation;
+    (block.entry || []).forEach((e) => {
+      const name =
+        (titleMap && titleMap[e.mal_id]) ||
+        e.name; // fall back to original if no English title
+      if (buckets[rel]) {
+        buckets[rel].push(name);
+      } else {
+        buckets.Other.push(name);
+      }
+    });
+  });
+
+  let html = "<ul>";
+  ["Prequel", "Main story", "Sequel", "Side story", "Summary", "Other"].forEach(
+    (k) => {
+      if (buckets[k].length) {
+        html += `<li><strong>${k}:</strong> ${buckets[k].join(", ")}</li>`;
+      }
+    }
+  );
+  html += "</ul>";
+  return html;
+}
 
   const buckets = {
     Prequel: [],
@@ -1001,7 +1066,10 @@ function buildWatchOrder(relations) {
   return html;
 }
 
-function openDetailsFromSearch(malId) {
+
+
+function openDetailsFromLibrary(a) {
+  cfunction openDetailsFromSearch(malId) {
   const body = $("modal-body");
   body.innerHTML = "Loading…";
   openModal();
@@ -1011,6 +1079,10 @@ function openDetailsFromSearch(malId) {
       const d = res.data;
       if (!d) throw new Error("No data");
 
+      // fetch English titles for related anime
+      return Promise.all([Promise.resolve(d), fetchRelationEnglishTitles(d.relations || [])]);
+    })
+    .then(([d, titleMap]) => {
       const title = d.title_english || d.title || d.title_japanese;
       const img = d.images?.jpg?.image_url || "";
       const genres = (d.genres || []).map((g) => g.name);
@@ -1024,14 +1096,16 @@ function openDetailsFromSearch(malId) {
             <p style="margin:0; font-size:13px;">
               ${d.type} • ${d.episodes || "?"} eps • Score ${d.score ?? "?"}
             </p>
-            <p style="margin:4px 0; font-size:12px; color:#9aa0b8;">${genres.join(", ")}</p>
+            <p style="margin:4px 0; font-size:12px; color:#9aa0b8;">
+              ${genres.join(", ")}
+            </p>
           </div>
         </div>
 
         <p style="font-size:12px;">${synopsis}</p>
 
         <h3 style="margin-top:12px;">Watch Order</h3>
-        ${buildWatchOrder(d.relations)}
+        ${buildWatchOrder(d.relations || [], titleMap)}
 
         <button id="add-to-library" class="primary-btn" style="margin-top:12px; width:100%;">
           Add to Library
@@ -1056,12 +1130,11 @@ function openDetailsFromSearch(malId) {
         alert("Added to library!");
       };
     })
-    .catch(() => {
+    .catch((err) => {
+      console.error(err);
       body.textContent = "Failed to load details.";
     });
-}
-
-function openDetailsFromLibrary(a) {
+    }
   const body = $("modal-body");
   const genres = (a.genres || []).join(", ");
 
