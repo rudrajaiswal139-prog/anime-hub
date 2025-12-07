@@ -893,34 +893,42 @@ function renderStatsAndRecs() {
       ).then((res) => res.json());
     }
 
-    function renderSearchResults(list) {
-      const container = document.getElementById("search-results");
-      container.innerHTML = "";
-      if (!list.length) {
-        container.textContent = "No results.";
-        return;
-      }
-      list.forEach((item) => {
-        const el = createEl("div", "search-item");
-        const left = createEl(
-          "div",
-          null,
-          item.title +
-            " • " +
-            item.type +
-            " • " +
-            (item.episodes || "?") +
-            " eps • Score " +
-            (item.score ?? "?")
-        );
-        const btn = createEl("button", "small", "Details");
-        btn.onclick = () => loadDetails(item.mal_id);
-        el.appendChild(left);
-        el.appendChild(btn);
-        container.appendChild(el);
-      });
-    }
+       // === FIXED SEARCH RESULTS (English titles + only main anime) ===
+function renderSearchResults(list) {
+  const container = document.getElementById("search-results");
+  container.innerHTML = "";
 
+  // 🟦 Prefer English title if available
+  const processed = list.map(item => ({
+    ...item,
+    displayTitle: item.title_english || item.title || item.title_japanese
+  }));
+
+  // 🟩 Filter only main TV series
+  const filtered = processed.filter(item => item.type === "TV");
+
+  if (!filtered.length) {
+    container.textContent = "No main anime series found.";
+    return;
+  }
+
+  // 🟧 Render clean results
+  filtered.forEach(item => {
+    const el = createEl("div", "search-item");
+    const left = createEl(
+      "div",
+      null,
+      `${item.displayTitle} • ${item.type} • ${item.episodes || "?"} eps • Score ${item.score ?? "?"}`
+    );
+
+    const btn = createEl("button", "small", "Details");
+    btn.onclick = () => loadDetails(item.mal_id);
+
+    el.appendChild(left);
+    el.appendChild(btn);
+    container.appendChild(el);
+  });
+} 
     function loadDetails(id) {
       const panel = document.getElementById("search-details");
       panel.style.display = "block";
