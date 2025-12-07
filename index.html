@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AniTracker</title>
+
+  <!-- Part 2 will add CSS here -->
+  <style id="app-style">
+    /* ------------------------------
+   GLOBAL SETTINGS
+------------------------------ */
+:root {
+  --bg-dark: #0d0f1a;
+  --bg-card-dark: #161a2b;
+  --text-light: #e5e7f0;
+  --text-muted: #9aa0b8;
+  --accent: #4da3ff;
+  --accent-glow: rgba(77,163,255,0.45);
+
+  --bg-light: #f5f7ff;
+  --bg-card-light: #ffffff;
+  --text-dark: #1b1d2a;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Inter", sans-serif;
+  background: var(--bg-dark);
+  color: var(--text-light);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+body[data-theme="light"] {
+  background: var(--bg-light);
+  color: var(--text-dark);
+}
+
+/* ------------------------------
+   HEADER
+------------------------------ */
+.app-header {
+  padding: 18px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(22,26,43,0.6);
+  backdrop-filter: blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+body[data-theme="light"] .app-header {
+  background: rgba(255,255,255,0.7);
+}
+
+.logo-text {
+  font-size: 26px;
+  margin: 0;
+  font-weight: 700;
+  color: var(--accent);
+  text-shadow: 0 0 10px var(--accent-glow);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.header-right {
+  display: flex;
+  gap: 10px;
+}
+
+.header-btn {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.header-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.theme-toggle {
+  font-size: 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* ------------------------------
+   SECTIONS
+------------------------------ */
+.section-card {
+  background: var(--bg-card-dark);
+  margin: 18px;
+  padding: 18px;
+  border-radius: 14px;
+  box-shadow: 0 0 12px rgba(0,0,0,0.3);
+}
+
+body[data-theme="light"] .section-card {
+  background: var(--bg-card-light);
+  box-shadow: 0 0 12px rgba(0,0,0,0.1);
+}
+
+.section-title {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.section-subtitle {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+}
+
+/* ------------------------------
+   SEARCH BAR
+------------------------------ */
+.search-row {
+  display: flex;
+  gap: 10px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  background: #0f1320;
+  color: var(--text-light);
+}
+
+body[data-theme="light"] .search-input {
+  background: #eef1ff;
+  color: var(--text-dark);
+}
+
+.primary-btn {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.primary-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* ------------------------------
+   SEARCH RESULT GRID
+------------------------------ */
+.search-grid,
+.anime-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.poster-card {
+  background: #111526;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.poster-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+
+.poster {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+
+.poster-info {
+  padding: 8px;
+}
+
+.poster-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.genre-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.genre-tag {
+  background: rgba(255,255,255,0.09);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+body[data-theme="light"] .genre-tag {
+  background: rgba(0,0,0,0.08);
+  color: #555;
+}
+
+/* ------------------------------
+   LIBRARY TABS
+------------------------------ */
+.status-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.tab {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #3a3f55;
+  background: transparent;
+  color: var(--text-light);
+  cursor: pointer;
+}
+
+body[data-theme="light"] .tab {
+  color: var(--text-dark);
+  border-color: #ccc;
+}
+
+.tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.empty-note {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 12px;
+}
+
+/* ------------------------------
+   CONTINUE WATCHING
+------------------------------ */
+.horizontal-grid {
+  display: flex;
+  overflow-x: auto;
+  gap: 14px;
+  padding-bottom: 10px;
+}
+
+.horizontal-grid::-webkit-scrollbar {
+  height: 6px;
+}
+
+.horizontal-grid::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 10px;
+}
+
+/* ------------------------------
+   STATS
+------------------------------ */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 14px;
+}
+
+.stat-box {
+  text-align: center;
+  background: #111526;
+  padding: 14px 10px;
+  border-radius: 10px;
+}
+
+body[data-theme="light"] .stat-box {
+  background: #f0f3ff;
+}
+
+.stat-box h3 {
+  margin: 0;
+  font-size: 22px;
+  color: var(--accent);
+}
+
+/* ------------------------------
+   MODAL
+------------------------------ */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.modal-content {
+  background: var(--bg-card-dark);
+  padding: 20px;
+  width: 90%;
+  max-width: 420px;
+  border-radius: 12px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+body[data-theme="light"] .modal-content {
+  background: var(--bg-card-light);
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  float: right;
+  cursor: pointer;
+}
+
+/* ------------------------------
+   FOOTER
+------------------------------ */
+.footer {
+  padding: 14px;
+  text-align: center;
+  color: var(--text-muted);
+    }
+  </style>
+</head>
+
+<body data-theme="dark">
+  <div id="app-root">
+
+    <!-- HEADER -->
+    <header class="app-header">
+      <div class="header-left">
+        <h1 class="logo-text">AniTracker</h1>
+        <p class="subtitle">Your personal anime dashboard</p>
+      </div>
+
+      <div class="header-right">
+        <!-- THEME TOGGLE -->
+        <button id="theme-toggle" class="theme-toggle">🌙</button>
+
+        <!-- BACKUP BUTTON -->
+        <button id="export-button" class="header-btn">Backup</button>
+        <input id="import-file" type="file" accept="application/json" hidden />
+        <button id="import-button" class="header-btn">Import</button>
+      </div>
+    </header>
+
+    <!-- SEARCH SECTION -->
+    <section class="section-card">
+      <h2 class="section-title">Search Anime</h2>
+      <p class="section-subtitle">Find anime with posters, ratings, genres & watch order</p>
+
+      <div class="search-row">
+        <input id="search-input" class="search-input" placeholder="Search anime (e.g. 'Attack on Titan')" />
+        <button id="search-button" class="primary-btn">Search</button>
+      </div>
+
+      <div id="search-results" class="search-grid"></div>
+    </section>
+
+    <!-- DETAILS MODAL -->
+    <div id="details-modal" class="modal hidden">
+      <div class="modal-content">
+        <button id="modal-close" class="modal-close">✖</button>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <!-- CONTINUE WATCHING ROW -->
+    <section class="section-card">
+      <h2 class="section-title">Continue Watching</h2>
+      <div id="continue-grid" class="horizontal-grid"></div>
+    </section>
+
+    <!-- LIBRARY -->
+    <section class="section-card">
+      <h2 class="section-title">Your Library</h2>
+      <p class="section-subtitle">Automatically grouped by status</p>
+
+      <div class="status-tabs">
+        <button data-status="all" class="tab active">All</button>
+        <button data-status="watching" class="tab">Watching</button>
+        <button data-status="completed" class="tab">Completed</button>
+        <button data-status="plan" class="tab">Plan to Watch</button>
+        <button data-status="dropped" class="tab">Dropped</button>
+        <button data-status="rewatching" class="tab">Rewatching</button>
+      </div>
+
+      <div id="library-grid" class="anime-grid"></div>
+      <p id="library-empty" class="empty-note">Your list is empty. Add anime from search.</p>
+    </section>
+
+    <!-- STATS SECTION -->
+    <section class="section-card">
+      <h2 class="section-title">Your Stats</h2>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <h3 id="stat-total">0</h3>
+          <p>Total Anime</p>
+        </div>
+        <div class="stat-box">
+          <h3 id="stat-hours">0h</h3>
+          <p>Hours Watched</p>
+        </div>
+        <div class="stat-box">
+          <h3 id="stat-genre">–</h3>
+          <p>Top Genre</p>
+        </div>
+        <div class="stat-box">
+          <h3 id="stat-score">0</h3>
+          <p>Average Score</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- RECOMMENDATIONS -->
+    <section class="section-card">
+      <h2 class="section-title">Recommended For You</h2>
+      <p class="section-subtitle">Based on your genres & ratings</p>
+      <div id="rec-grid" class="anime-grid"></div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      AniTracker • Built with ❤️ • Data saved locally on your device
+    </footer>
+
+  </div>
+
+  <!-- PART 3 + PART 4 WILL GO HERE -->
+  <script id="app-script">
+  </script>
+
+</body>
+  </html>
