@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My Anime Hub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="top-bar">
+      <div>
+        <h1>My Anime Hub</h1>
+        <p class="subtitle">Personal tracker • Watch order • Stats • Fun stuff</p>
+      </div>
+      <div class="profile-card">
+        <div class="avatar" id="profile-avatar"></div>
+        <div class="profile-text">
+          <div id="profile-name-display">Anime Fan</div>
+          <small id="edit-mode-label">Read-only</small>
+        </div>
+      </div>
+    </header>
+
+    <!-- EDIT MODE TOGGLE -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Access</h2>
+      </div>
+      <div class="card-body">
+        <p class="hint">
+          Only you should be able to edit. Enter your PIN to unlock edit mode.
+        </p>
+        <div class="row">
+          <input type="password" id="pin-input" placeholder="Enter PIN (default 1234)" />
+          <button id="pin-button">Unlock edit mode</button>
+          <button id="pin-lock-button" class="secondary">Lock</button>
+        </div>
+        <div class="row">
+          <input type="text" id="profile-name-input" placeholder="Your name / nickname" />
+          <input type="text" id="profile-avatar-input" placeholder="Avatar image URL (optional)" />
+          <button id="profile-save-button" class="secondary">Save profile</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUOTE OF THE DAY -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Quote of the Day</h2>
+      </div>
+      <div class="card-body" id="quote-box">
+        <p id="quote-text">Loading quote...</p>
+        <p id="quote-meta"></p>
+      </div>
+    </section>
+
+    <!-- SEARCH & DETAILS -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Search Anime</h2>
+        <p class="card-subtitle">
+          Shows episodes, status, rating, basic watch order & manga info.
+        </p>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <input id="search-input" type="text" placeholder="Type anime name, e.g. 'Attack on Titan'" />
+          <button id="search-button">Search</button>
+        </div>
+        <div id="search-results" class="search-results"></div>
+        <div id="search-details" class="details-panel"></div>
+      </div>
+    </section>
+
+    <!-- ADD / EDIT ANIME (ONLY IN EDIT MODE) -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Add Manual Anime</h2>
+        <p class="card-subtitle">If something isn't in the search results, add it yourself.</p>
+      </div>
+      <div class="card-body">
+        <div class="grid-two">
+          <div>
+            <label>Title</label>
+            <input id="manual-title" type="text" placeholder="Anime title" />
+          </div>
+          <div>
+            <label>Total episodes</label>
+            <input id="manual-total" type="number" min="1" placeholder="e.g. 24" />
+          </div>
+          <div>
+            <label>Minutes per episode</label>
+            <input id="manual-minutes" type="number" min="1" placeholder="Default 24" />
+          </div>
+          <div>
+            <label>Start episodes watched</label>
+            <input id="manual-ep" type="number" min="0" placeholder="e.g. 0" />
+          </div>
+          <div>
+            <label>Status</label>
+            <select id="manual-status">
+              <option value="watching">Watching</option>
+              <option value="completed">Completed</option>
+              <option value="rewatching">Rewatching</option>
+              <option value="on-hold">On-hold</option>
+              <option value="dropped">Dropped</option>
+              <option value="plan">Plan to watch</option>
+            </select>
+          </div>
+          <div>
+            <label>Tags (comma separated)</label>
+            <input id="manual-tags" type="text" placeholder="peak, sad, comfort" />
+          </div>
+        </div>
+        <button id="manual-add-button">Add to library</button>
+        <p class="hint">Note: Editing is only allowed when edit mode is unlocked.</p>
+      </div>
+    </section>
+
+    <!-- MAIN LISTS -->
+    <section class="card">
+      <div class="card-header">
+        <h2>My Anime Library</h2>
+        <p class="card-subtitle">Click on a status tab to filter.</p>
+      </div>
+      <div class="card-body">
+        <div class="status-tabs">
+          <button data-filter="all" class="status-tab active">All</button>
+          <button data-filter="watching" class="status-tab">Watching</button>
+          <button data-filter="rewatching" class="status-tab">Rewatching</button>
+          <button data-filter="completed" class="status-tab">Completed</button>
+          <button data-filter="on-hold" class="status-tab">On-hold</button>
+          <button data-filter="dropped" class="status-tab">Dropped</button>
+          <button data-filter="plan" class="status-tab">Plan to watch</button>
+        </div>
+        <div id="anime-list" class="anime-list"></div>
+        <p id="anime-empty" class="empty-text">No anime yet. Add some from search or manual section.</p>
+      </div>
+    </section>
+
+    <!-- STATS & RECOMMENDATIONS -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Stats & Recommendations</h2>
+      </div>
+      <div class="card-body grid-two">
+        <div>
+          <h3>Stats</h3>
+          <ul class="stats-list">
+            <li><span>Total anime:</span> <span id="stat-total">0</span></li>
+            <li><span>Completed:</span> <span id="stat-completed">0</span></li>
+            <li><span>Episodes watched:</span> <span id="stat-episodes">0</span></li>
+            <li><span>Estimated time watched:</span> <span id="stat-time">0 hrs</span></li>
+            <li><span>Top genre (approx):</span> <span id="stat-genre">–</span></li>
+          </ul>
+        </div>
+        <div>
+          <h3>Simple Recommendations</h3>
+          <p class="hint">Based on your most common genres. Not AI, but still useful 🙂</p>
+          <ul id="recommendations" class="recommendations"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEASONAL & BINGO -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Seasonal Anime & Bingo</h2>
+      </div>
+      <div class="card-body grid-two">
+        <div>
+          <h3>Current Season</h3>
+          <button id="season-button">Load current season anime</button>
+          <div id="season-list" class="season-list"></div>
+        </div>
+        <div>
+          <h3>Anime Bingo</h3>
+          <p class="hint">Tap squares you’ve done. Saved in your browser.</p>
+          <div id="bingo-grid" class="bingo-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Built for fun • Data saved in your browser • Hosted on GitHub Pages
+    </footer>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+  </html>
